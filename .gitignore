@@ -1,0 +1,8 @@
+#composer
+**/vendor/
+
+#vim
+*.sw[op]
+
+#phpStorm
+.idea
