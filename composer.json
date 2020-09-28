@@ -1,26 +1,34 @@
 {
-    "name": "stamoulohta/i18n",
-    "description": "Internationalization package for web apps.",
-    "version": "1.0.1",
-    "readme": "readme.md",
-    "type": "library",
-    "authors": [
-        {
-            "name": "George Stamoulis",
-            "homepage": "http://stamoulohta.com",
-            "email": "g.a.stamoulis@gmail.com",
-            "role": "developer"
-        }
-    ],
-    "require": {
-        "php": "^7.2"
-    },
-    "autoload": {
-        "psr-4": {
-            "Stamoulohta\\i18n\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "files": ["def/conf.php"]
+  "name": "stamoulohta/i18n",
+  "description": "Internationalization package for web apps.",
+  "version": "1.1.2",
+  "readme": "readme.md",
+  "type": "library",
+  "authors": [
+    {
+      "name": "George Stamoulis",
+      "homepage": "http://stamoulohta.com",
+      "email": "g.a.stamoulis@gmail.com",
+      "role": "developer"
     }
+  ],
+  "bin": [
+    "bin/i18n.php"
+  ],
+  "scripts": {
+    "i18n": ["i18n.php"]
+  },
+  "require": {
+    "php": ">=7.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "Stamoulohta\\i18n\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "files": [
+      "def/conf.php"
+    ]
+  }
 }

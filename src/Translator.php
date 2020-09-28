@@ -2,89 +2,192 @@
 
 namespace Stamoulohta\i18n;
 
+/**
+ * Static class Translator.
+ *
+ * Translates key strings denoted with {@link Translator::$delimiter, delimiter}
+ * to the required {@link Translator::$language, language}.
+ *
+ * @package Stamoulohta\i18n
+ * @see     Translator::get() Returns the translation.
+ * @see     Translator::echo() Prints the translation.
+ */
 class Translator
 {
-    static private $log = true;
-    static private $path;
-    static private $lang;
-    static private $delimiter = '.';
+    private const DEFAULT_DICTIONARY_PATH = __DIR__ . '/../res/lang';
+    private const DEFAULT_DELIMITER = '.';
 
-    static private $dict;
+    /**
+     * @var string Path to the language files.
+     */
+    private $path;
 
-    public static function init($lang = null, $path = null, $log = null, $delimiter = null)
+    /**
+     * @var string Filename of language dictionary without ".php" extension.
+     */
+    private $language;
+
+    /**
+     * @var string Index notation delimiter. Default {@link Translator::DEFAULT_DELIMITER, '.' (dot)}.
+     */
+    private $delimiter;
+
+    /**
+     * @var array The language array.
+     */
+    private $dictionary;
+
+    /**
+     * @var Logger Logs unknown key notations to either STDERR or to given file.
+     * @see I18N_LOG_UNKNOWN
+     */
+    private static $logger;
+
+    /**
+     * @var Translator[] Class singletons.
+     */
+    private static $instances = [];
+
+    /**
+     * Singleton provider.
+     *
+     * @param string $language The language requested.
+     *
+     * @return Translator Singleton class instance.
+     */
+    public static function get_instance($language = I18N_LANGUAGE_CODE)
     {
-        self::set_log($log);
-        self::set_lang($lang);
-        self::set_path($path);
-        self::set_delimiter($delimiter);
+        if (! array_key_exists($language, self::$instances)) {
+            self::$instances[$language] = new static($language);
+        }
+
+        return self::$instances[$language];
     }
 
-    public static function set_log($log = null)
+    /**
+     * Private constructor to ensure singleton.
+     *
+     * @param $language string The required language.
+     */
+    private function __construct($language)
     {
-        self::$log = $log ?? defined('I18N_ERROR_LOG') ? I18N_ERROR_LOG : false;
-    }
+        $this->language = $language;
 
-    public static function set_delimiter($delimiter = null)
-    {
-        self::$delimiter = $delimiter ?: defined('I18N_NOTATION_DELIMITER') ? I18N_NOTATION_DELIMITER : self::$delimiter;
-    }
+        $this->path = defined('I18N_DICTIONARY_PATH') ? I18N_DICTIONARY_PATH : self::DEFAULT_DICTIONARY_PATH;
+        $this->path = rtrim($this->path, DIRECTORY_SEPARATOR);
 
-    public static function set_lang($lang = null)
-    {
-        self::$lang = $lang ?: (defined('I18N_LANGUAGE_CODE') ? I18N_LANGUAGE_CODE : 'en');
-        if (! empty(self::$path)) {
-            self::set_dict();
+        $this->delimiter = defined('I18N_NOTATION_DELIMITER') ? I18N_NOTATION_DELIMITER : self::DEFAULT_DELIMITER;
+
+        $this->set_dictionary();
+
+        if (defined('I18N_LOG_UNKNOWN') && I18N_LOG_UNKNOWN) {
+            self::$logger = Logger::get_instance();
         }
     }
 
-    public static function set_path($path = null)
+    /**
+     * @param $delimiter string Sets the notation delimiter.
+     */
+    public function set_delimiter($delimiter)
     {
-        if (empty($path)) {
-            $path = defined('I18N_DICTIONARY_PATH') ? I18N_DICTIONARY_PATH : '.';
-        }
-        self::$path = rtrim($path, DIRECTORY_SEPARATOR);
-
-        if (! empty(self::$lang)) {
-            self::set_dict();
-        }
+        $this->delimiter = $delimiter;
     }
 
-    private static function set_dict()
+    /**
+     * @param $language string Sets the language and reloads the dictionary.
+     */
+    public function set_language($language)
     {
-        self::$dict = self::load_dict(self::$lang);
+        if($this->language === $language) {
+            return;
+        }
+
+        $this->language = $language;
+        $this->set_dictionary();
     }
 
-    private static function load_dict($lang)
+    /**
+     * @param $path string Sets the path and reloads the dictionary.
+     */
+    public function set_path($path)
+    {
+        if($this->path === $path) {
+            return;
+        }
+        $this->path = rtrim($path, DIRECTORY_SEPARATOR);
+        $this->set_dictionary();
+    }
+
+    /**
+     * Sets the dictionary determined by {@link Translator::$path, path} and {@link Translator::$language, language}.
+     */
+    private function set_dictionary()
+    {
+        $this->dictionary = self::load_dictionary($this->path, $this->language);
+    }
+
+    /**
+     * Loads the requested dictionary from file.
+     *
+     * @param $path string The path to dictionary files.
+     * @param $language string The language.
+     *
+     * @return false|array The resulting dictionary of false.
+     */
+    private static function load_dictionary($path, $language)
     {
         /** @noinspection PhpIncludeInspection */
-        return include(sprintf('%s/%s.php', self::$path, $lang));
+        return include(sprintf('%s/%s.php', $path, $language));
     }
 
-    private static function descend(&$dict, $keys)
+    /**
+     * Recursively descends in to the dictionary array looking for the notation index.
+     *
+     * @param $dictionary array The dictionary array.
+     * @param $keys array The keys.
+     *
+     * @return null|string The value if is found or NULL.
+     */
+    private static function descend(&$dictionary, $keys)
     {
-        $var = @$dict[array_shift($keys)];
+        $var = @$dictionary[array_shift($keys)];
         if (is_array($var)) {
             return self::descend($var, $keys);
         }
         return $var;
     }
 
-    public static function get($index, $lang = null, $delimiter = null)
+    /**
+     * Returns the value of the given index or the index itself if it is unknown.
+     *
+     * @param $index string The index notation.
+     * @param $language null|string The requested language. Default {@link Translator::$language}.
+     * @param $delimiter null|string The requested delimiter. Default {@link Translator::$delimiter}.
+     *
+     * @return string The value found or the given index.
+     */
+    public function get($index, $language = null, $delimiter = null)
     {
-        $delimiter = $delimiter ?: self::$delimiter;
-        $dict = $lang === null ? self::$dict : self::load_dict($lang);
+        $current_dictionary = $language === null ? $this->dictionary : self::load_dictionary($this->path, $language);
+        $delimiter = $delimiter ?: $this->delimiter;
 
-        $val = self::descend($dict, explode($delimiter, $index));
+        $translation = self::descend($current_dictionary, explode($delimiter, $index));
 
-        if (! $val && self::$log) {
-            $msg = sprintf('Translation missing for "%s" in "%s/%s.php"', $index, self::$path, $lang ?: self::$lang);
-            trigger_error($msg, E_USER_WARNING);
+        if (! $translation && self::$logger) {
+            self::$logger->unknown($language ?: $this->language, $index);
         }
-        return $val ?: $index;
+        return $translation ?: $index;
     }
 
-    public static function echo($index, $lang = null, $delimiter = null)
+    /**
+     * Prints the value of the given index or the index itself if it is unknown.
+     *
+     * @param $index string The index notation.
+     * @param $language null|string The requested language. Default {@link Translator::$language}.
+     * @param $delimiter null|string The requested delimiter. Default {@link Translator::$delimiter}.
+     */
+    public function echo($index, $language = null, $delimiter = null)
     {
-        echo(self::get($index, $lang, $delimiter));
+        echo($this->get($index, $language, $delimiter));
     }
 }
