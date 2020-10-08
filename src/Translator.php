@@ -14,8 +14,8 @@ namespace Stamoulohta\i18n;
  */
 class Translator
 {
-    private const DEFAULT_DICTIONARY_PATH = __DIR__ . '/../res/lang';
-    private const DEFAULT_DELIMITER = '.';
+    const DEFAULT_DICTIONARY_PATH = __DIR__ . '/../res/lang';
+    const DEFAULT_DELIMITER = '.';
 
     /**
      * @var string Path to the language files.
@@ -36,6 +36,12 @@ class Translator
      * @var array The language array.
      */
     private $dictionary;
+
+    /**
+     * @var Lexer Inserts unknown notations to dictionaries.
+     * @see I18N_FILL_UNKNOWN
+     */
+    private $lexer;
 
     /**
      * @var Logger Logs unknown key notations to either STDERR or to given file.
@@ -80,9 +86,23 @@ class Translator
 
         $this->set_dictionary();
 
+        if (defined('I18N_FILL_UNKNOWN') && I18N_FILL_UNKNOWN) {
+            $this->lexer = $this->get_lexer($this->language);
+        }
+
         if (defined('I18N_LOG_UNKNOWN') && I18N_LOG_UNKNOWN) {
             self::$logger = Logger::get_instance();
         }
+    }
+
+    private function get_lexer($language)
+    {
+        $lexer = Lexer::get_instance($language);
+        // TODO: This seems redundant
+        $lexer->set_path($this->path);
+        $lexer->set_delimiter($this->delimiter);
+
+        return $lexer;
     }
 
     /**
@@ -91,19 +111,9 @@ class Translator
     public function set_delimiter($delimiter)
     {
         $this->delimiter = $delimiter;
-    }
-
-    /**
-     * @param $language string Sets the language and reloads the dictionary.
-     */
-    public function set_language($language)
-    {
-        if($this->language === $language) {
-            return;
+        if ($this->lexer) {
+            $this->lexer->set_delimiter($this->delimiter);
         }
-
-        $this->language = $language;
-        $this->set_dictionary();
     }
 
     /**
@@ -111,11 +121,14 @@ class Translator
      */
     public function set_path($path)
     {
-        if($this->path === $path) {
+        if ($this->path === $path) {
             return;
         }
         $this->path = rtrim($path, DIRECTORY_SEPARATOR);
         $this->set_dictionary();
+        if ($this->lexer) {
+            $this->lexer->set_path($this->path);
+        }
     }
 
     /**
@@ -129,7 +142,7 @@ class Translator
     /**
      * Loads the requested dictionary from file.
      *
-     * @param $path string The path to dictionary files.
+     * @param $path     string The path to dictionary files.
      * @param $language string The language.
      *
      * @return false|array The resulting dictionary of false.
@@ -144,7 +157,7 @@ class Translator
      * Recursively descends in to the dictionary array looking for the notation index.
      *
      * @param $dictionary array The dictionary array.
-     * @param $keys array The keys.
+     * @param $keys       array The keys.
      *
      * @return null|string The value if is found or NULL.
      */
@@ -160,8 +173,8 @@ class Translator
     /**
      * Returns the value of the given index or the index itself if it is unknown.
      *
-     * @param $index string The index notation.
-     * @param $language null|string The requested language. Default {@link Translator::$language}.
+     * @param $index     string The index notation.
+     * @param $language  null|string The requested language. Default {@link Translator::$language}.
      * @param $delimiter null|string The requested delimiter. Default {@link Translator::$delimiter}.
      *
      * @return string The value found or the given index.
@@ -173,8 +186,13 @@ class Translator
 
         $translation = self::descend($current_dictionary, explode($delimiter, $index));
 
-        if (! $translation && self::$logger) {
-            self::$logger->unknown($language ?: $this->language, $index);
+        if (! $translation) {
+            if (self::$logger) {
+                self::$logger->unknown($language ?: $this->language, $index);
+            }
+            if ($translation === null && $this->lexer) {
+                $this->lexer->insert($index);
+            }
         }
         return $translation ?: $index;
     }
@@ -182,8 +200,8 @@ class Translator
     /**
      * Prints the value of the given index or the index itself if it is unknown.
      *
-     * @param $index string The index notation.
-     * @param $language null|string The requested language. Default {@link Translator::$language}.
+     * @param $index     string The index notation.
+     * @param $language  null|string The requested language. Default {@link Translator::$language}.
      * @param $delimiter null|string The requested delimiter. Default {@link Translator::$delimiter}.
      */
     public function echo($index, $language = null, $delimiter = null)

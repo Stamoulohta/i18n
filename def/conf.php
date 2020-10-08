@@ -27,3 +27,11 @@ define('I18N_DICTIONARY_PATH', dirname(__FILE__, 2) . '/res/lang');
  * Must be defined for {@link \Stamoulohta\i18n\Translator::get_instance(), Translator::get_instance()} defaults to this.
  */
 const I18N_LANGUAGE_CODE = 'en';
+
+
+/**
+ * Whether to fill dictionary with unknown <b>indices</b>.
+ *
+ * Optional, true to fill with NULL;
+ */
+const I18N_FILL_UNKNOWN = true;
