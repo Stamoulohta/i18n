@@ -134,14 +134,15 @@ class Lexer
      * and sets the update flag.
      *
      * @param $index String notation index.
+     * @param $value null|String value to insert.
      */
-    public function insert($index)
+    public function insert($index, $value = '')
     {
         $dict = &$this->dictionary;
         foreach(explode($this->delimiter, $index) as $key) {
             $dict = &$dict[$key];
         }
-        $dict = null;
+        $dict = $value;
         $this->update = true;
     }
 
