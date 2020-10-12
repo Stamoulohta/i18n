@@ -188,11 +188,19 @@ class Lexer
         }
     }
 
-    public function toDictionary($flatten, $dictionary = []) {
+    public function save($flatten, $dictionary = [])
+    {
         foreach($flatten as $notation => $value) {
             $this->build($dictionary, $notation, $value);
         }
         $this->dictionary = $dictionary;
         $this->update = true;
+    }
+
+    public function update($entries)
+    {
+        foreach($entries as $index => $value) {
+            $this->insert($index, $value);
+        }
     }
 }
